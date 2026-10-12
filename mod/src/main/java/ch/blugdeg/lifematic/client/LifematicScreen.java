@@ -10,7 +10,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +34,9 @@ public final class LifematicScreen extends Screen {
     private String materialsId;
     private final List<Line> lines = new ArrayList<>();
 
-    private record Line(String text, int color) {}
+    private record Line(String text, int color, ItemStack icon) {
+        Line(String text, int color) { this(text, color, null); }
+    }
 
     public LifematicScreen() {
         super(Component.literal("Lifematic"));
@@ -272,7 +277,7 @@ public final class LifematicScreen extends Screen {
                 lines.add(new Line("Fortschritt wird noch berechnet (Bereich muss geladen sein).", GRAY));
             }
             Map<String, Integer> inv = inventoryCounts();
-            int perPage = Math.max(3, (this.height - 120) / 11);
+            int perPage = Math.max(3, (this.height - 120) / 18);
             List<Map.Entry<String, Integer>> miss = m.missing();
             for (int i = scroll; i < miss.size() && i < scroll + perPage; i++) {
                 String id = miss.get(i).getKey();
@@ -280,7 +285,7 @@ public final class LifematicScreen extends Screen {
                 int have = inv.getOrDefault(itemIdFor(id), 0);
                 String stacks = need >= 64 ? "  (" + need / 64 + " × 64 + " + need % 64 + ")" : "";
                 lines.add(new Line(need + "×  " + blockName(id) + stacks + "   ·  im Inventar: " + have,
-                        have >= need ? GREEN : WHITE));
+                        have >= need ? GREEN : WHITE, iconFor(id)));
             }
             if (miss.isEmpty()) lines.add(new Line("Nichts fehlt mehr. Fertig!", GREEN));
             pager(miss.size(), perPage);
@@ -298,6 +303,16 @@ public final class LifematicScreen extends Screen {
             case "minecraft:wall_torch" -> "minecraft:torch";
             default -> blockId;
         };
+    }
+
+    /** Item-Symbol fuer einen Block (leer, wenn es kein passendes Item gibt). */
+    private static ItemStack iconFor(String blockId) {
+        try {
+            Item item = BuiltInRegistries.ITEM.getValue(Identifier.parse(itemIdFor(blockId)));
+            return item == Items.AIR ? null : new ItemStack(item);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static String blockName(String id) {
@@ -363,8 +378,14 @@ public final class LifematicScreen extends Screen {
         } else {
             int y = 22;
             for (Line l : lines) {
-                graphics.text(this.font, l.text(), cx - 155, y, l.color());
-                y += 11;
+                if (l.icon() != null) {
+                    graphics.item(l.icon(), cx - 155, y);
+                    graphics.text(this.font, l.text(), cx - 133, y + 4, l.color());
+                    y += 18;
+                } else {
+                    graphics.text(this.font, l.text(), cx - 155, y, l.color());
+                    y += 11;
+                }
             }
         }
         if (!status.isEmpty()) graphics.centeredText(this.font, status, cx, this.height - 40, WHITE);
