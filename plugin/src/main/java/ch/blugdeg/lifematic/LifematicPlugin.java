@@ -161,6 +161,7 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
                     out.writeByte(Protocol.S_HELLO);
                     out.writeInt(Protocol.VERSION);
                     send(player, bos);
+                    sendSync(player);
                     if (v != Protocol.VERSION) {
                         player.sendMessage(Component.text("Deine Lifematic-Mod passt nicht zur Server-Version. Bitte neu herunterladen.", NamedTextColor.RED));
                     }
@@ -171,6 +172,17 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
                 case Protocol.C_UPLOAD_BEGIN -> handleUploadBegin(player, in);
                 case Protocol.C_UPLOAD_CHUNK -> handleUploadChunk(player, in);
                 case Protocol.C_UPLOAD_END -> handleUploadEnd(player);
+                case Protocol.C_HAVE -> {
+                    int n = in.readInt();
+                    Map<String, Integer> l = loaded.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>());
+                    for (int i = 0; i < n && i < 1000; i++) {
+                        String id = in.readUTF();
+                        int ver = in.readInt();
+                        if (store.blueprints.containsKey(id)) l.put(id, ver);
+                    }
+                    currentArea.remove(player.getUniqueId());
+                    checkArea(player, player.getLocation());
+                }
                 case Protocol.C_REQUEST -> {
                     String id = in.readUTF();
                     Blueprint bp = store.blueprints.get(id);
@@ -379,6 +391,21 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
         markAnswered(p, bp);
     }
 
+    /** Schickt dem Client die Liste aller gueltigen Bauplaene (id + Version). */
+    private void sendSync(Player p) {
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bos);
+            out.writeByte(Protocol.S_SYNC);
+            out.writeInt(store.blueprints.size());
+            for (Blueprint bp : store.blueprints.values()) {
+                out.writeUTF(bp.id);
+                out.writeInt(bp.version);
+            }
+            send(p, bos);
+        } catch (IOException ignored) {}
+    }
+
     private void sendRemove(Player p, String id) {
         try {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -583,6 +610,7 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
             out.writeInt(Protocol.VERSION);
             send(p, bos);
         } catch (IOException ignored) {}
+        sendSync(p);
         currentArea.remove(p.getUniqueId());
         getServer().getScheduler().runTaskLater(this, () -> {
             if (p.isOnline()) checkArea(p, p.getLocation());

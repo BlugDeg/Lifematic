@@ -61,6 +61,23 @@ public final class LitematicaBridge {
         return us > 0 ? n.substring(0, us) : null;
     }
 
+    /** Welche empfangenen Bauplaene (id -> version) sind gerade in Litematica? */
+    public static java.util.Map<String, Integer> receivedVersions() {
+        java.util.Map<String, Integer> m = new java.util.HashMap<>();
+        for (SchematicPlacement p : DataManager.getSchematicPlacementManager().getAllSchematicsPlacements()) {
+            String id = receivedId(p);
+            if (id == null || p.getSchematicFile() == null) continue;
+            String n = p.getSchematicFile().getFileName().toString();
+            int a = n.indexOf("_v"), b = n.lastIndexOf(".litematic");
+            try {
+                m.put(id, Integer.parseInt(n.substring(a + 2, b)));
+            } catch (RuntimeException ignored) {
+                m.put(id, 0);
+            }
+        }
+        return m;
+    }
+
     /** Entfernt alle empfangenen Platzierungen eines Bauplans. */
     public static int removeReceived(String id) {
         SchematicPlacementManager mgr = DataManager.getSchematicPlacementManager();

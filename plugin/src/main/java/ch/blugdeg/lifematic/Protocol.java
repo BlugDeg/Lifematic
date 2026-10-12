@@ -22,6 +22,7 @@ public final class Protocol {
     public static final byte C_UPLOAD_CHUNK = 3;  // int offset, int len, bytes
     public static final byte C_UPLOAD_END = 4;    // -
     public static final byte C_REQUEST = 5;       // utf id
+    public static final byte C_HAVE = 6;          // int n, n * (utf id, int version)  - welche Bauplaene der Client schon hat
 
     // Server -> Client
     public static final byte S_HELLO = 10;        // int version
@@ -30,4 +31,5 @@ public final class Protocol {
     public static final byte S_FILE_END = 13;     // utf id
     public static final byte S_REMOVE = 14;       // utf id
     public static final byte S_UPLOAD_RESULT = 15;// boolean ok, utf message, utf id
+    public static final byte S_SYNC = 16;         // int n, n * (utf id, int version)  - alle gueltigen Bauplaene
 }

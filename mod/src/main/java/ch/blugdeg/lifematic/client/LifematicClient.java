@@ -235,6 +235,37 @@ public final class LifematicClient implements ClientModInitializer {
                     if (ok) say("«" + dlName + "» ist geladen. Mit M siehst du die Materialliste.", ChatFormatting.GREEN);
                     else say("Litematica konnte den Bauplan nicht laden.", ChatFormatting.RED);
                 }
+                case Protocol.S_SYNC -> {
+                    int n = in.readInt();
+                    java.util.Map<String, Integer> valid = new java.util.HashMap<>();
+                    for (int i = 0; i < n; i++) valid.put(in.readUTF(), in.readInt());
+                    java.util.Map<String, Integer> have = LitematicaBridge.receivedVersions();
+                    java.util.List<String> keep = new java.util.ArrayList<>();
+                    for (java.util.Map.Entry<String, Integer> e : have.entrySet()) {
+                        Integer v = valid.get(e.getKey());
+                        if (v == null) {
+                            LitematicaBridge.removeReceived(e.getKey());
+                            CONFIG.unlinkId(e.getKey());
+                        } else {
+                            keep.add(e.getKey());
+                            if (!v.equals(e.getValue())) {
+                                String id = e.getKey();
+                                send(out -> {
+                                    out.writeByte(Protocol.C_REQUEST);
+                                    out.writeUTF(id);
+                                });
+                            }
+                        }
+                    }
+                    send(out -> {
+                        out.writeByte(Protocol.C_HAVE);
+                        out.writeInt(keep.size());
+                        for (String id : keep) {
+                            out.writeUTF(id);
+                            out.writeInt(valid.get(id));
+                        }
+                    });
+                }
                 case Protocol.S_REMOVE -> {
                     String id = in.readUTF();
                     int n = LitematicaBridge.removeReceived(id);
