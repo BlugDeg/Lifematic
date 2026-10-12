@@ -179,7 +179,10 @@ public final class LifematicScreen extends Screen {
         });
         button("Schliessen", cx + 55, y, 100, b -> this.onClose());
 
-        if (!LifematicClient.serverHasPlugin) lines.add(new Line("Server ohne Lifematic-Plugin: Teilen nicht moeglich", RED));
+        if (!LifematicClient.serverHasPlugin && status.isEmpty()) {
+            status = "Keine Verbindung zum Lifematic-Plugin – Teilen nicht moeglich";
+            LifematicClient.sendHello();
+        }
     }
 
     /** Shift gedrueckt? Dann 10 statt 1 Block (wie in Litematica). */

@@ -156,6 +156,8 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
                 case Protocol.C_HELLO -> {
                     int v = in.readInt();
                     modPlayers.add(player.getUniqueId());
+                    ensureChannel(player);
+                    getLogger().info("Lifematic-Mod verbunden: " + player.getName() + " (Protokoll " + v + ")");
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
                     DataOutputStream out = new DataOutputStream(bos);
                     out.writeByte(Protocol.S_HELLO);
@@ -461,6 +463,20 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
             out.writeUTF(id);
             send(p, bos);
         } catch (IOException ignored) {}
+    }
+
+    /**
+     * Paper schickt Plugin-Nachrichten nur an Spieler, die den Kanal angemeldet haben.
+     * Meldet der Client ihn nicht (oder zu spaet) an, tragen wir ihn selbst ein.
+     */
+    private void ensureChannel(Player p) {
+        if (p.getListeningPluginChannels().contains(Protocol.CHANNEL)) return;
+        try {
+            p.getClass().getMethod("addChannel", String.class).invoke(p, Protocol.CHANNEL);
+            getLogger().info("Kanal " + Protocol.CHANNEL + " fuer " + p.getName() + " nachgetragen.");
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            getLogger().warning("Kanal konnte fuer " + p.getName() + " nicht eingetragen werden: " + e);
+        }
     }
 
     private boolean hasMod(Player p) {
