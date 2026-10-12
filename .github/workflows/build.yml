@@ -38,13 +38,29 @@ jobs:
         working-directory: plugin
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon --stacktrace -PpaperVersion="${{ steps.v.outputs.paper }}"
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace -PpaperVersion="${{ steps.v.outputs.paper }}" 2>&1 | tee ../plugin-build.log
 
       - name: Mod bauen
         working-directory: mod
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon --stacktrace -Plitematica_version="${{ steps.v.outputs.lite }}" -Pmalilib_version="${{ steps.v.outputs.mali }}"
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace -Plitematica_version="${{ steps.v.outputs.lite }}" -Pmalilib_version="${{ steps.v.outputs.mali }}" 2>&1 | tee ../mod-build.log
+
+      - name: Build-Logs in Branch ci-logs ablegen
+        if: always()
+        run: |
+          mkdir -p /tmp/logs
+          cp -f *-build.log /tmp/logs/ 2>/dev/null || true
+          echo "paper=${{ steps.v.outputs.paper }} lite=${{ steps.v.outputs.lite }} mali=${{ steps.v.outputs.mali }} sha=${{ github.sha }}" > /tmp/logs/info.txt
+          cd /tmp/logs
+          git init -q -b ci-logs
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "Logs ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-logs
 
       - name: Dateien sammeln
         run: |
