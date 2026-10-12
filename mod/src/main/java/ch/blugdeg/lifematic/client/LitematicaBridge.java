@@ -7,6 +7,7 @@ import fi.dy.masa.litematica.data.SchematicHolder;
 import fi.dy.masa.litematica.schematic.LitematicaSchematic;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacement;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacementManager;
+import fi.dy.masa.litematica.schematic.placement.SubRegionPlacement;
 import fi.dy.masa.litematica.selection.Box;
 import fi.dy.masa.malilib.gui.interfaces.IMessageConsumer;
 import fi.dy.masa.malilib.hotkeys.IHotkey;
@@ -47,13 +48,23 @@ public final class LitematicaBridge {
                                 BlockPos min, BlockPos max, String hashId) {}
 
     public static PlacementInfo describe(SchematicPlacement p) {
-        Box box = p.getEclosingBox();
-        if (box == null || box.getPos1() == null || box.getPos2() == null) return null;
-        BlockPos a = box.getPos1(), b = box.getPos2();
-        BlockPos min = new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()));
-        BlockPos max = new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ()));
+        // Litematica berechnet den Gesamtbereich nur, wenn dessen Rahmen angezeigt wird.
+        // Darum selbst aus den Teilbereichen zusammensetzen.
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        boolean any = false;
+        for (Box box : p.getSubRegionBoxes(SubRegionPlacement.RequiredEnabled.ANY).values()) {
+            if (box == null || box.getPos1() == null || box.getPos2() == null) continue;
+            BlockPos a = box.getPos1(), b = box.getPos2();
+            minX = Math.min(minX, Math.min(a.getX(), b.getX())); maxX = Math.max(maxX, Math.max(a.getX(), b.getX()));
+            minY = Math.min(minY, Math.min(a.getY(), b.getY())); maxY = Math.max(maxY, Math.max(a.getY(), b.getY()));
+            minZ = Math.min(minZ, Math.min(a.getZ(), b.getZ())); maxZ = Math.max(maxZ, Math.max(a.getZ(), b.getZ()));
+            any = true;
+        }
+        if (!any) return null;
         String hash = p.getHashId() == null ? "" : p.getHashId().toString();
-        return new PlacementInfo(p.getName(), p.getSchematicFile(), p.getOrigin(), p.getRotation(), p.getMirror(), min, max, hash);
+        return new PlacementInfo(p.getName(), p.getSchematicFile(), p.getOrigin(), p.getRotation(), p.getMirror(),
+                new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ), hash);
     }
 
     /** Ist diese Platzierung ein empfangener Bauplan? Dann liefert die Methode dessen ID. */

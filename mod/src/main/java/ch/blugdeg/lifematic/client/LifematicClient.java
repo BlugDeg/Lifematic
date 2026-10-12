@@ -132,7 +132,8 @@ public final class LifematicClient implements ClientModInitializer {
         String linked = LitematicaBridge.linkedId(p);
         if (received != null && linked == null) return "Das ist ein Bauplan von jemand anderem.";
         LitematicaBridge.PlacementInfo info = LitematicaBridge.describe(p);
-        if (info == null || info.file() == null) return "Diese Platzierung hat keine Datei oder keinen Bereich.";
+        if (info == null) return "Litematica liefert fuer diese Platzierung keinen Bereich.";
+        if (info.file() == null) return "Diese Platzierung hat keine Datei. Oeffne den Bauplan ueber «Bauplan oeffnen …».";
         byte[] data;
         try {
             data = Files.readAllBytes(info.file());
