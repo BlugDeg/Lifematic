@@ -55,6 +55,7 @@ public final class LifematicScreen extends Screen {
         page = p;
         scroll = 0;
         confirmShare = false;
+        status = "";
         if (p == Page.SERVER) LifematicClient.requestList();
         rebuild();
     }
