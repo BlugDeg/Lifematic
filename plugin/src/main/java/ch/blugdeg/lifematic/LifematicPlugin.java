@@ -183,6 +183,11 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
                     currentArea.remove(player.getUniqueId());
                     checkArea(player, player.getLocation());
                 }
+                case Protocol.C_MATERIALS -> {
+                    Blueprint bp = store.blueprints.get(in.readUTF());
+                    if (bp != null) sendMaterials(player, bp);
+                }
+                case Protocol.C_LIST -> sendList(player);
                 case Protocol.C_REQUEST -> {
                     String id = in.readUTF();
                     Blueprint bp = store.blueprints.get(id);
@@ -389,6 +394,48 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
         } catch (IOException ignored) {}
         loaded.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>()).put(bp.id, bp.version);
         markAnswered(p, bp);
+    }
+
+    private void sendMaterials(Player p, Blueprint bp) {
+        try {
+            List<Map.Entry<String, Integer>> miss = missing(bp);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bos);
+            out.writeByte(Protocol.S_MATERIALS);
+            out.writeUTF(bp.id);
+            out.writeInt(bp.expected == null ? 0 : bp.expected.size());
+            out.writeInt(bp.correct);
+            int n = Math.min(miss.size(), 2000);
+            out.writeInt(n);
+            for (int i = 0; i < n; i++) {
+                out.writeUTF(miss.get(i).getKey());
+                out.writeInt(miss.get(i).getValue());
+            }
+            send(p, bos);
+        } catch (IOException ignored) {}
+    }
+
+    private void sendList(Player p) {
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(bos);
+            out.writeByte(Protocol.S_LIST);
+            out.writeInt(store.blueprints.size());
+            for (Blueprint bp : store.blueprints.values()) {
+                out.writeUTF(bp.id);
+                out.writeInt(bp.version);
+                out.writeUTF(bp.name);
+                out.writeUTF(bp.ownerName);
+                out.writeUTF(bp.world);
+                out.writeInt(bp.percent());
+                out.writeBoolean(bp.helpersAllowed);
+                out.writeBoolean(bp.owner.equals(p.getUniqueId()));
+                out.writeInt((bp.minX + bp.maxX) / 2);
+                out.writeInt(bp.minY);
+                out.writeInt((bp.minZ + bp.maxZ) / 2);
+            }
+            send(p, bos);
+        } catch (IOException ignored) {}
     }
 
     /** Schickt dem Client die Liste aller gueltigen Bauplaene (id + Version). */
@@ -792,7 +839,7 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
             }
             default -> {
                 sender.sendMessage(Component.text("Lifematic – geteilte Bauplaene", NamedTextColor.GOLD, TextDecoration.BOLD));
-                sender.sendMessage(Component.text(" Teilen: in Litematica platzieren, dann Taste B (zweimal)", NamedTextColor.GRAY));
+                sender.sendMessage(Component.text(" Teilen: Taste R → Bauplan oeffnen, platzieren, Teilen", NamedTextColor.GRAY));
                 sender.sendMessage(Component.text(" /bauplan liste · info · laden · entladen · nein", NamedTextColor.GRAY));
                 sender.sendMessage(Component.text(" /bauplan helfer an|aus · helfer add|entfernen <Spieler>", NamedTextColor.GRAY));
                 sender.sendMessage(Component.text(" /bauplan umbenennen <Name> · loeschen [id]", NamedTextColor.GRAY));

@@ -1,5 +1,7 @@
 package ch.blugdeg.lifematic.client;
 
+import fi.dy.masa.litematica.config.Configs;
+import fi.dy.masa.litematica.config.Hotkeys;
 import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.data.SchematicHolder;
 import fi.dy.masa.litematica.schematic.LitematicaSchematic;
@@ -7,6 +9,11 @@ import fi.dy.masa.litematica.schematic.placement.SchematicPlacement;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacementManager;
 import fi.dy.masa.litematica.selection.Box;
 import fi.dy.masa.malilib.gui.interfaces.IMessageConsumer;
+import fi.dy.masa.malilib.hotkeys.IHotkey;
+import fi.dy.masa.malilib.util.LayerMode;
+import fi.dy.masa.malilib.util.position.LayerRange;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Direction;
 import fi.dy.masa.malilib.interfaces.IStringConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Mirror;
@@ -15,8 +22,10 @@ import net.minecraft.world.level.block.Rotation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /** Alles, was direkt mit Litematica spricht, steckt hier drin. */
 public final class LitematicaBridge {
@@ -123,5 +132,170 @@ public final class LitematicaBridge {
 
     static Mirror parseMirror(String s) {
         try { return Mirror.valueOf(s); } catch (IllegalArgumentException e) { return Mirror.NONE; }
+    }
+
+    // ------------------------------------------------------------------ Lifematic-Menue
+
+    /** Server-ID der eigenen, schon geteilten Platzierung (oder null). */
+    public static String linkedId(SchematicPlacement p) {
+        return p.getHashId() == null ? null : LifematicClient.CONFIG.idFor(p.getHashId().toString());
+    }
+
+    /** Litematicas eigene Tasten und den Werkzeug-Stock abschalten: bedient wird alles ueber Lifematic. */
+    public static void hideLitematicaControls() {
+        int n = 0;
+        try {
+            for (IHotkey hk : Hotkeys.HOTKEY_LIST) {
+                hk.getKeybind().clearKeys();
+                n++;
+            }
+            for (Class<?> c : Configs.class.getDeclaredClasses()) {
+                try {
+                    Field f = c.getField("HOTKEY_LIST");
+                    Object v = f.get(null);
+                    if (v instanceof List<?> list) {
+                        for (Object o : list) {
+                            if (o instanceof IHotkey hk) {
+                                hk.getKeybind().clearKeys();
+                                n++;
+                            }
+                        }
+                    }
+                } catch (NoSuchFieldException | IllegalAccessException ignored) {
+                }
+            }
+            Configs.Generic.TOOL_ITEM_ENABLED.setBooleanValue(false);
+        } catch (Throwable t) {
+            LifematicClient.LOG.warn("Litematica-Tasten konnten nicht abgeschaltet werden", t);
+        }
+        LifematicClient.LOG.info("Lifematic: {} Litematica-Tasten abgeschaltet", n);
+    }
+
+    /** Alle .litematic-Dateien im schematics-Ordner (ohne empfangene Server-Bauplaene). */
+    public static List<Path> localFiles() {
+        List<Path> out = new ArrayList<>();
+        try {
+            Path base = DataManager.getSchematicsBaseDirectory();
+            Path recv = receiveDir().toAbsolutePath().normalize();
+            try (Stream<Path> st = Files.walk(base, 4)) {
+                st.filter(f -> f.getFileName().toString().endsWith(".litematic"))
+                  .filter(f -> !f.toAbsolutePath().normalize().startsWith(recv))
+                  .sorted()
+                  .forEach(out::add);
+            }
+        } catch (IOException e) {
+            LifematicClient.LOG.warn("schematics-Ordner nicht lesbar", e);
+        }
+        return out;
+    }
+
+    /** Oeffnet eine Datei als neue Platzierung an der Position des Spielers. */
+    public static String open(Path file) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return "Kein Spieler";
+        LitematicaSchematic schematic = SchematicHolder.getInstance().getOrLoad(file);
+        if (schematic == null) return "Datei konnte nicht gelesen werden.";
+        String name = file.getFileName().toString().replace(".litematic", "");
+        SchematicPlacement placement = SchematicPlacement.createFor(schematic, mc.player.blockPosition(), name, true, true);
+        SchematicPlacementManager mgr = DataManager.getSchematicPlacementManager();
+        mgr.addSchematicPlacement(placement, false);
+        mgr.setSelectedSchematicPlacement(placement);
+        return "«" + name + "» steht jetzt bei dir.";
+    }
+
+    public static List<SchematicPlacement> all() {
+        return DataManager.getSchematicPlacementManager().getAllSchematicsPlacements();
+    }
+
+    public static void select(SchematicPlacement p) {
+        DataManager.getSchematicPlacementManager().setSelectedSchematicPlacement(p);
+    }
+
+    public static void selectNext() {
+        List<SchematicPlacement> list = all();
+        if (list.isEmpty()) return;
+        SchematicPlacement cur = selected();
+        int i = cur == null ? -1 : list.indexOf(cur);
+        select(list.get((i + 1) % list.size()));
+    }
+
+    public static boolean canEdit(SchematicPlacement p) {
+        return p != null && !p.isLocked() && (receivedId(p) == null || linkedId(p) != null);
+    }
+
+    public static void move(SchematicPlacement p, int dx, int dy, int dz) {
+        if (!canEdit(p)) return;
+        p.setOrigin(p.getOrigin().offset(dx, dy, dz), (IStringConsumer) null);
+    }
+
+    public static void moveToPlayer(SchematicPlacement p) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!canEdit(p) || mc.player == null) return;
+        p.setOrigin(mc.player.blockPosition(), (IStringConsumer) null);
+    }
+
+    public static void rotate(SchematicPlacement p) {
+        if (!canEdit(p)) return;
+        p.setRotation(p.getRotation().getRotated(Rotation.CLOCKWISE_90), (IMessageConsumer) null);
+    }
+
+    public static void mirror(SchematicPlacement p) {
+        if (!canEdit(p)) return;
+        Mirror next = switch (p.getMirror()) {
+            case NONE -> Mirror.LEFT_RIGHT;
+            case LEFT_RIGHT -> Mirror.FRONT_BACK;
+            default -> Mirror.NONE;
+        };
+        p.setMirror(next, (IMessageConsumer) null);
+    }
+
+    public static void remove(SchematicPlacement p) {
+        if (p == null) return;
+        DataManager.getSchematicPlacementManager().removeSchematicPlacement(p);
+    }
+
+    // Anzeige
+
+    public static boolean renderingOn() {
+        return Configs.Visuals.ENABLE_RENDERING.getBooleanValue();
+    }
+
+    public static void toggleRendering() {
+        Configs.Visuals.ENABLE_RENDERING.setBooleanValue(!renderingOn());
+    }
+
+    public static boolean singleLayer() {
+        return DataManager.getRenderLayerRange().getLayerMode() != LayerMode.ALL;
+    }
+
+    public static void toggleSingleLayer() {
+        LayerRange r = DataManager.getRenderLayerRange();
+        if (r.getLayerMode() == LayerMode.ALL) {
+            r.setAxis(Direction.Axis.Y);
+            r.setLayerMode(LayerMode.SINGLE_LAYER, false);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) r.setLayerSingle(mc.player.blockPosition().getY());
+        } else {
+            r.setLayerMode(LayerMode.ALL, false);
+        }
+    }
+
+    public static void moveLayer(int amount) {
+        LayerRange r = DataManager.getRenderLayerRange();
+        if (r.getLayerMode() == LayerMode.ALL) toggleSingleLayer();
+        r.moveLayer(amount);
+    }
+
+    public static void layerToPlayer() {
+        LayerRange r = DataManager.getRenderLayerRange();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (r.getLayerMode() == LayerMode.ALL) toggleSingleLayer();
+        r.setLayerSingle(mc.player.blockPosition().getY());
+    }
+
+    public static String layerText() {
+        LayerRange r = DataManager.getRenderLayerRange();
+        return r.getLayerMode() == LayerMode.ALL ? "alle Ebenen" : "Ebene Y " + r.getLayerSingle();
     }
 }

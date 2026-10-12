@@ -24,19 +24,21 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class LifematicClient implements ClientModInitializer {
     public static final Logger LOG = LoggerFactory.getLogger("lifematic");
     public static final LinkConfig CONFIG = new LinkConfig();
 
-    private static KeyMapping shareKey;
-    private static boolean serverHasPlugin;
+    private static KeyMapping menuKey;
+    static boolean serverHasPlugin;
+    private static boolean litematicaHidden;
 
-    // Bestaetigung fuers Teilen (zweimal B innerhalb von 5 Sekunden)
-    private static SchematicPlacement pendingShare;
-    private static long pendingSince;
     // Laufender Upload: welche Platzierung wird gerade hochgeladen?
-    private static SchematicPlacement uploading;
+    static SchematicPlacement uploading;
 
     // Laufender Download
     private static String dlId, dlName, dlOwner, dlRotation, dlMirror;
@@ -44,6 +46,15 @@ public final class LifematicClient implements ClientModInitializer {
     private static byte[] dlData;
     private static BlockPos dlOrigin;
     private static boolean dlIsOwner;
+
+    /** Bauplaene auf dem Server (Antwort auf C_LIST). */
+    public record ServerEntry(String id, int version, String name, String owner, String world, int percent,
+                              boolean helpersAllowed, boolean mine, BlockPos center) {}
+    static List<ServerEntry> serverList = new ArrayList<>();
+
+    /** Materialliste vom Server (Antwort auf C_MATERIALS). */
+    public record Materials(String id, int total, int correct, List<Map.Entry<String, Integer>> missing) {}
+    static final Map<String, Materials> materials = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
@@ -57,83 +68,78 @@ public final class LifematicClient implements ClientModInitializer {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             serverHasPlugin = false;
             dlData = null;
-            send(out -> {
-                out.writeByte(Protocol.C_HELLO);
-                out.writeInt(Protocol.VERSION);
-            });
+            serverList = new ArrayList<>();
+            materials.clear();
+            client.execute(LitematicaBridge::hideLitematicaControls);
+            sendHello();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             serverHasPlugin = false;
-            pendingShare = null;
             uploading = null;
             dlData = null;
         });
 
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("lifematic", "main"));
-        shareKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.share",
-                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, category));
+        menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.menu",
+                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, category));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (shareKey.consumeClick()) {
-                onShareKey(client);
+            if (!litematicaHidden) {
+                litematicaHidden = true;
+                LitematicaBridge.hideLitematicaControls();
+            }
+            while (menuKey.consumeClick()) {
+                if (client.player != null && client.screen == null) {
+                    client.setScreen(new LifematicScreen());
+                }
             }
         });
     }
 
-    // ------------------------------------------------------------------ Teilen
-
-    private static void onShareKey(Minecraft mc) {
-        if (mc.player == null) return;
-        if (!serverHasPlugin && ClientPlayNetworking.canSend(LifematicPayload.TYPE)) {
-            send(out -> {
-                out.writeByte(Protocol.C_HELLO);
-                out.writeInt(Protocol.VERSION);
-            });
-        }
-        if (!serverHasPlugin) {
-            say("Dieser Server hat kein Lifematic-Plugin.", ChatFormatting.RED);
-            return;
-        }
-        if (uploading != null) {
-            say("Ein Upload laeuft noch …", ChatFormatting.GRAY);
-            return;
-        }
-        SchematicPlacement p = LitematicaBridge.selected();
-        if (p == null) {
-            say("Waehle zuerst in Litematica eine Platzierung aus (M → Platzierungen verwalten).", ChatFormatting.RED);
-            return;
-        }
-        String received = LitematicaBridge.receivedId(p);
-        String linked = CONFIG.idFor(p.getHashId() == null ? null : p.getHashId().toString());
-        if (received != null && linked == null) {
-            say("Das ist ein Bauplan von jemand anderem. Nur der Ersteller kann ihn aendern.", ChatFormatting.RED);
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (pendingShare != p || now - pendingSince > 5000) {
-            pendingShare = p;
-            pendingSince = now;
-            String what = linked != null ? "aktualisieren" : "mit allen teilen";
-            say("«" + p.getName() + "» " + what + "? Druecke B nochmal zum Bestaetigen.", ChatFormatting.YELLOW);
-            return;
-        }
-        pendingShare = null;
-        upload(p, linked == null ? "" : linked);
+    static void sendHello() {
+        send(out -> {
+            out.writeByte(Protocol.C_HELLO);
+            out.writeInt(Protocol.VERSION);
+        });
     }
 
-    private static void upload(SchematicPlacement p, String existingId) {
+    // ------------------------------------------------------------------ Aktionen fuer die Menues
+
+    static void requestList() {
+        if (!serverHasPlugin) sendHello();
+        send(out -> out.writeByte(Protocol.C_LIST));
+    }
+
+    static void requestMaterials(String id) {
+        send(out -> {
+            out.writeByte(Protocol.C_MATERIALS);
+            out.writeUTF(id);
+        });
+    }
+
+    static void requestBlueprint(String id) {
+        send(out -> {
+            out.writeByte(Protocol.C_REQUEST);
+            out.writeUTF(id);
+        });
+    }
+
+    /** Laedt die Platzierung als neuen Bauplan hoch oder aktualisiert den verknuepften. */
+    static String share(SchematicPlacement p) {
+        if (!serverHasPlugin) return "Dieser Server hat kein Lifematic-Plugin.";
+        if (uploading != null) return "Ein Upload laeuft noch …";
+        String received = LitematicaBridge.receivedId(p);
+        String linked = LitematicaBridge.linkedId(p);
+        if (received != null && linked == null) return "Das ist ein Bauplan von jemand anderem.";
         LitematicaBridge.PlacementInfo info = LitematicaBridge.describe(p);
-        if (info == null || info.file() == null) {
-            say("Diese Platzierung hat keine Datei oder keinen Bereich. Speichere den Bauplan zuerst als .litematic.", ChatFormatting.RED);
-            return;
-        }
+        if (info == null || info.file() == null) return "Diese Platzierung hat keine Datei oder keinen Bereich.";
         byte[] data;
         try {
             data = Files.readAllBytes(info.file());
         } catch (IOException e) {
-            say("Datei konnte nicht gelesen werden: " + info.file().getFileName(), ChatFormatting.RED);
-            return;
+            return "Datei konnte nicht gelesen werden: " + info.file().getFileName();
         }
+        String existingId = linked == null ? "" : linked;
         uploading = p;
         final byte[] fileData = data;
         boolean ok = send(out -> {
@@ -165,12 +171,11 @@ public final class LifematicClient implements ClientModInitializer {
             });
         }
         if (ok) ok = send(out -> out.writeByte(Protocol.C_UPLOAD_END));
-        if (ok) {
-            say("Bauplan wird hochgeladen (" + (fileData.length / 1024 + 1) + " KB) …", ChatFormatting.GRAY);
-        } else {
+        if (!ok) {
             uploading = null;
-            say("Senden fehlgeschlagen.", ChatFormatting.RED);
+            return "Senden fehlgeschlagen.";
         }
+        return (existingId.isEmpty() ? "Wird geteilt" : "Wird aktualisiert") + " (" + (fileData.length / 1024 + 1) + " KB) …";
     }
 
     // ------------------------------------------------------------------ Empfangen
@@ -192,6 +197,7 @@ public final class LifematicClient implements ClientModInitializer {
                         CONFIG.link(uploading.getHashId().toString(), id);
                     }
                     uploading = null;
+                    LifematicScreen.refreshIfOpen();
                 }
                 case Protocol.S_FILE_BEGIN -> {
                     dlId = in.readUTF();
@@ -232,29 +238,30 @@ public final class LifematicClient implements ClientModInitializer {
                     boolean ok = LitematicaBridge.addReceived(dlId, dlVersion, dlName, dlOwner, dlData,
                             dlOrigin, dlRotation, dlMirror, dlIsOwner);
                     dlData = null;
-                    if (ok) say("«" + dlName + "» ist geladen. Mit M siehst du die Materialliste.", ChatFormatting.GREEN);
-                    else say("Litematica konnte den Bauplan nicht laden.", ChatFormatting.RED);
+                    if (ok) say("«" + dlName + "» ist geladen. Taste R oeffnet das Lifematic-Menue.", ChatFormatting.GREEN);
+                    else say("Der Bauplan konnte nicht geladen werden.", ChatFormatting.RED);
+                    LifematicScreen.refreshIfOpen();
+                }
+                case Protocol.S_REMOVE -> {
+                    String id = in.readUTF();
+                    int n = LitematicaBridge.removeReceived(id);
+                    if (n > 0) say("Bauplan-Vorschau entfernt.", ChatFormatting.GRAY);
+                    LifematicScreen.refreshIfOpen();
                 }
                 case Protocol.S_SYNC -> {
                     int n = in.readInt();
-                    java.util.Map<String, Integer> valid = new java.util.HashMap<>();
+                    Map<String, Integer> valid = new HashMap<>();
                     for (int i = 0; i < n; i++) valid.put(in.readUTF(), in.readInt());
-                    java.util.Map<String, Integer> have = LitematicaBridge.receivedVersions();
-                    java.util.List<String> keep = new java.util.ArrayList<>();
-                    for (java.util.Map.Entry<String, Integer> e : have.entrySet()) {
+                    Map<String, Integer> have = LitematicaBridge.receivedVersions();
+                    List<String> keep = new ArrayList<>();
+                    for (Map.Entry<String, Integer> e : have.entrySet()) {
                         Integer v = valid.get(e.getKey());
                         if (v == null) {
                             LitematicaBridge.removeReceived(e.getKey());
                             CONFIG.unlinkId(e.getKey());
                         } else {
                             keep.add(e.getKey());
-                            if (!v.equals(e.getValue())) {
-                                String id = e.getKey();
-                                send(out -> {
-                                    out.writeByte(Protocol.C_REQUEST);
-                                    out.writeUTF(id);
-                                });
-                            }
+                            if (!v.equals(e.getValue())) requestBlueprint(e.getKey());
                         }
                     }
                     send(out -> {
@@ -266,10 +273,33 @@ public final class LifematicClient implements ClientModInitializer {
                         }
                     });
                 }
-                case Protocol.S_REMOVE -> {
+                case Protocol.S_LIST -> {
+                    int n = in.readInt();
+                    List<ServerEntry> list = new ArrayList<>();
+                    for (int i = 0; i < n; i++) {
+                        String id = in.readUTF();
+                        int ver = in.readInt();
+                        String name = in.readUTF();
+                        String owner = in.readUTF();
+                        String world = in.readUTF();
+                        int pct = in.readInt();
+                        boolean helpers = in.readBoolean();
+                        boolean mine = in.readBoolean();
+                        BlockPos c = new BlockPos(in.readInt(), in.readInt(), in.readInt());
+                        list.add(new ServerEntry(id, ver, name, owner, world, pct, helpers, mine, c));
+                    }
+                    serverList = list;
+                    LifematicScreen.refreshIfOpen();
+                }
+                case Protocol.S_MATERIALS -> {
                     String id = in.readUTF();
-                    int n = LitematicaBridge.removeReceived(id);
-                    if (n > 0) say("Bauplan-Vorschau entfernt.", ChatFormatting.GRAY);
+                    int total = in.readInt();
+                    int correct = in.readInt();
+                    int n = in.readInt();
+                    List<Map.Entry<String, Integer>> miss = new ArrayList<>();
+                    for (int i = 0; i < n; i++) miss.add(Map.entry(in.readUTF(), in.readInt()));
+                    materials.put(id, new Materials(id, total, correct, miss));
+                    LifematicScreen.refreshIfOpen();
                 }
                 default -> LOG.debug("Unbekanntes Lifematic-Paket {}", type);
             }
@@ -281,11 +311,11 @@ public final class LifematicClient implements ClientModInitializer {
     // ------------------------------------------------------------------ Hilfen
 
     @FunctionalInterface
-    private interface Writer {
+    interface Writer {
         void write(DataOutputStream out) throws IOException;
     }
 
-    private static boolean send(Writer w) {
+    static boolean send(Writer w) {
         try {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             DataOutputStream out = new DataOutputStream(bos);

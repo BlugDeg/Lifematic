@@ -10,7 +10,7 @@ public final class Protocol {
     private Protocol() {}
 
     public static final String CHANNEL = "lifematic:main";
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
     /** Nutzlast pro Upload-Paket (Client -> Server hat ein Limit von 32 KiB). */
     public static final int UPLOAD_CHUNK = 30_000;
     /** Nutzlast pro Download-Paket (Server -> Client erlaubt bis 1 MiB). */
@@ -22,6 +22,8 @@ public final class Protocol {
     public static final byte C_UPLOAD_CHUNK = 3;  // int offset, int len, bytes
     public static final byte C_UPLOAD_END = 4;    // -
     public static final byte C_REQUEST = 5;       // utf id
+    public static final byte C_MATERIALS = 7;     // utf id
+    public static final byte C_LIST = 8;          // -
     public static final byte C_HAVE = 6;          // int n, n * (utf id, int version)  - welche Bauplaene der Client schon hat
 
     // Server -> Client
@@ -31,5 +33,7 @@ public final class Protocol {
     public static final byte S_FILE_END = 13;     // utf id
     public static final byte S_REMOVE = 14;       // utf id
     public static final byte S_UPLOAD_RESULT = 15;// boolean ok, utf message, utf id
+    public static final byte S_MATERIALS = 17;    // utf id, int total, int correct (-1 = unbekannt), int n, n * (utf blockId, int missing)
+    public static final byte S_LIST = 18;         // int n, n * (utf id, int version, utf name, utf owner, utf world, int percent, boolean helpersAllowed, boolean mine, int x, int y, int z)
     public static final byte S_SYNC = 16;         // int n, n * (utf id, int version)  - alle gueltigen Bauplaene
 }
