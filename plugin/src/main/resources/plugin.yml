@@ -1,0 +1,18 @@
+name: Lifematic
+version: '${version}'
+main: ch.blugdeg.lifematic.LifematicPlugin
+api-version: '26.2'
+description: Teilt Litematica-Bauplaene auf dem Server
+author: BlugDeg
+commands:
+  lifematic:
+    description: Bauplaene verwalten
+    usage: /lifematic hilfe
+    aliases: [bauplan, bp]
+permissions:
+  lifematic.share:
+    description: Bauplaene teilen
+    default: true
+  lifematic.admin:
+    description: Alle Bauplaene verwalten
+    default: op

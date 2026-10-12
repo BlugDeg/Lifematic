@@ -1,0 +1,49 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = 'lifematic'
+}
+
+repositories {
+	maven {
+		url = 'https://masa.dy.fi/maven/sakura-ryoko'
+		content { includeGroupAndSubgroups('fi.dy.masa') }
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API, Litematica und MaLiLib werden in die Mod eingebettet,
+	// damit Spieler nur eine einzige Datei brauchen.
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	include "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	implementation "fi.dy.masa.malilib:malilib-fabric-${project.minecraft_version}:${project.malilib_version}"
+	include "fi.dy.masa.malilib:malilib-fabric-${project.minecraft_version}:${project.malilib_version}"
+	implementation "fi.dy.masa.litematica:litematica-fabric-${project.minecraft_version}:${project.litematica_version}"
+	include "fi.dy.masa.litematica:litematica-fabric-${project.minecraft_version}:${project.litematica_version}"
+}
+
+processResources {
+	def props = [version: project.version, litematica: project.litematica_version, malilib: project.malilib_version]
+	inputs.properties props
+	filesMatching('fabric.mod.json') {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

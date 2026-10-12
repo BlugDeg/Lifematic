@@ -1,0 +1,11 @@
+# Maximale Dateigroesse eines Bauplans in Kilobyte
+max-dateigroesse-kb: 4096
+# Maximale Anzahl Bauplaene pro Spieler (Admins unbegrenzt)
+max-bauplaene-pro-spieler: 5
+# Wenn Helfer ausgeschaltet sind: duerfen Fremde im Bereich trotzdem bauen/abbauen?
+# true = Bereich ist fuer Fremde gesperrt, false = nur Hinweis
+schutz-wenn-helfer-aus: true
+# Link fuer Spieler ohne Mod
+mod-download: "https://mc.it-en.ch"
+# Wie oft der Fortschritt nachgerechnet wird (Sekunden fuer einen kompletten Durchlauf)
+fortschritt-intervall-sekunden: 20
