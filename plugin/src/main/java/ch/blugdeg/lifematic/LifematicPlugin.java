@@ -691,7 +691,12 @@ public final class LifematicPlugin extends JavaPlugin implements Listener, Plugi
     public void onSwap(PlayerSwapHandItemsEvent e) {
         if (!e.getPlayer().isSneaking()) return;
         Blueprint bp = areaAt(e.getPlayer().getLocation());
-        if (bp == null) return;
+        if (bp == null) {
+            e.getPlayer().sendActionBar(Component.text(store.blueprints.isEmpty()
+                    ? "Es ist noch kein Bauplan geteilt."
+                    : "Du stehst in keinem Bauplan-Bereich. /bauplan liste zeigt alle.", NamedTextColor.GRAY));
+            return;
+        }
         e.setCancelled(true);
         showInfo(e.getPlayer(), bp);
     }

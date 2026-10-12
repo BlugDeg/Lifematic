@@ -330,7 +330,6 @@ public final class LifematicScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        this.extractBackground(graphics, mouseX, mouseY, delta);
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         int cx = this.width / 2;
         graphics.centeredText(this.font, "Lifematic", cx, 8, GOLD);
