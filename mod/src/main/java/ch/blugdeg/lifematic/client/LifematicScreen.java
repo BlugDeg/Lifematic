@@ -179,7 +179,6 @@ public final class LifematicScreen extends Screen {
         });
         button("Schliessen", cx + 55, y, 100, b -> this.onClose());
 
-        lines.add(new Line("Shift + Klick = 10 Bloecke / 10 Ebenen", GRAY));
         if (!LifematicClient.serverHasPlugin) lines.add(new Line("Server ohne Lifematic-Plugin: Teilen nicht moeglich", RED));
     }
 
@@ -356,6 +355,7 @@ public final class LifematicScreen extends Screen {
             }
             if (page == Page.MAIN) {
                 graphics.centeredText(this.font, "Anzeige: " + LitematicaBridge.layerText(), cx, 145, GRAY);
+                graphics.centeredText(this.font, "Shift + Klick = 10 Bloecke / 10 Ebenen", cx, 206, GRAY);
             }
         } else {
             int y = 22;
