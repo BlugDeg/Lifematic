@@ -23,7 +23,7 @@ import java.util.Map;
 
 /** Das Lifematic-Menue (Taste R). Eine Klasse mit mehreren Seiten. */
 public final class LifematicScreen extends Screen {
-    private enum Page { MAIN, FILES, SERVER, MATERIALS }
+    private enum Page { MAIN, FILES, SERVER, MATERIALS, PROJECTS }
 
     private static final int WHITE = 0xFFFFFFFF, GRAY = 0xFFAAAAAA, GOLD = 0xFFFFAA00, GREEN = 0xFF55FF55, RED = 0xFFFF5555;
 
@@ -71,6 +71,7 @@ public final class LifematicScreen extends Screen {
             case FILES -> initFiles();
             case SERVER -> initServer();
             case MATERIALS -> initMaterials();
+            case PROJECTS -> initProjects();
         }
     }
 
@@ -95,10 +96,8 @@ public final class LifematicScreen extends Screen {
 
         // Zeile 1: Baupläne
         button("Bauplan oeffnen …", cx - 155, y, 100, b -> go(Page.FILES));
-        button("Naechster Bauplan", cx - 50, y, 100, b -> {
-            LitematicaBridge.selectNext();
-            rebuild();
-        }).active = LitematicaBridge.all().size() > 1;
+        button("Meine Projekte (" + LitematicaBridge.all().size() + ")", cx - 50, y, 100, b -> go(Page.PROJECTS))
+                .active = !LitematicaBridge.all().isEmpty();
         button("Server-Bauplaene", cx + 55, y, 100, b -> go(Page.SERVER));
         y += 28;
 
@@ -213,6 +212,48 @@ public final class LifematicScreen extends Screen {
         };
     }
 
+    // ------------------------------------------------------------------ Projekte
+
+    private static String idOf(SchematicPlacement p) {
+        String l = LitematicaBridge.linkedId(p);
+        return l != null ? l : LitematicaBridge.receivedId(p);
+    }
+
+    private void initProjects() {
+        int cx = this.width / 2;
+        List<SchematicPlacement> list = LitematicaBridge.all();
+        SchematicPlacement sel = LitematicaBridge.selected();
+        lines.add(new Line("Meine Projekte – auswaehlen, ein-/ausblenden, Materialliste", GOLD));
+        if (list.isEmpty()) lines.add(new Line("Noch kein Bauplan geladen.", GRAY));
+        int perPage = Math.max(3, (this.height - 110) / 24);
+        int y = 40;
+        for (int i = scroll; i < list.size() && i < scroll + perPage; i++) {
+            SchematicPlacement p = list.get(i);
+            String name = (p == sel ? "▶ " : "") + p.getName();
+            if (name.length() > 28) name = name.substring(0, 28) + "…";
+            button(name, cx - 155, y, 170, b -> {
+                LitematicaBridge.select(p);
+                rebuild();
+            });
+            button(p.isEnabled() ? "Sichtbar" : "Versteckt", cx + 19, y, 66, b -> {
+                p.setEnabled(!p.isEnabled());
+                rebuild();
+            });
+            String id = idOf(p);
+            button("Material", cx + 89, y, 66, b -> {
+                LitematicaBridge.select(p);
+                materialsId = id;
+                LifematicClient.requestMaterials(id);
+                go(Page.MATERIALS);
+            }).active = id != null && LifematicClient.serverHasPlugin;
+            y += 24;
+        }
+        if (list.stream().anyMatch(p -> idOf(p) == null)) {
+            status = "Materialliste gibt es fuer geteilte Bauplaene.";
+        }
+        pager(list.size(), perPage);
+    }
+
     // ------------------------------------------------------------------ Dateien
 
     private void initFiles() {
@@ -266,7 +307,9 @@ public final class LifematicScreen extends Screen {
 
     private void initMaterials() {
         LifematicClient.Materials m = materialsId == null ? null : LifematicClient.materials.get(materialsId);
-        lines.add(new Line("Materialliste – was noch fehlt", GOLD));
+        String projName = materialsId;
+        for (SchematicPlacement sp : LitematicaBridge.all()) if (materialsId != null && materialsId.equals(idOf(sp))) projName = sp.getName();
+        lines.add(new Line("Materialliste: " + projName, GOLD));
         if (m == null) {
             lines.add(new Line("Wird vom Server geladen …", GRAY));
         } else {
@@ -294,6 +337,7 @@ public final class LifematicScreen extends Screen {
         button("Aktualisieren", cx - 50, this.height - 28, 100, b -> {
             LifematicClient.requestMaterials(materialsId);
         });
+        button("Projekt wechseln", cx + 55, 2, 100, b -> go(Page.PROJECTS));
     }
 
     private static String itemIdFor(String blockId) {
@@ -360,7 +404,7 @@ public final class LifematicScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         int cx = this.width / 2;
         graphics.centeredText(this.font, "Lifematic", cx, 8, GOLD);
-        if (page == Page.MAIN || page == Page.FILES || page == Page.SERVER) {
+        if (page == Page.MAIN || page == Page.FILES || page == Page.SERVER || page == Page.PROJECTS) {
             int y = 20;
             for (Line l : lines) {
                 if (page == Page.MAIN) {
