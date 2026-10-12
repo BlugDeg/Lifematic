@@ -1,6 +1,8 @@
 package ch.blugdeg.lifematic.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacement;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -102,7 +104,8 @@ public final class LifematicScreen extends Screen {
         for (int i = 0; i < 6; i++) {
             final int[] dd = d[i];
             button(labels[i], cx - 155 + i * 52, y, 48, b -> {
-                LitematicaBridge.move(LitematicaBridge.selected(), dd[0], dd[1], dd[2]);
+                int f = shift() ? 10 : 1;
+                LitematicaBridge.move(LitematicaBridge.selected(), dd[0] * f, dd[1] * f, dd[2] * f);
                 rebuild();
             }).active = edit;
         }
@@ -167,16 +170,23 @@ public final class LifematicScreen extends Screen {
         });
         y += 24;
         button("Ebene ▼", cx - 155, y, 100, b -> {
-            LitematicaBridge.moveLayer(-1);
+            LitematicaBridge.moveLayer(shift() ? -10 : -1);
             rebuild();
         });
         button("Ebene ▲", cx - 50, y, 100, b -> {
-            LitematicaBridge.moveLayer(1);
+            LitematicaBridge.moveLayer(shift() ? 10 : 1);
             rebuild();
         });
         button("Schliessen", cx + 55, y, 100, b -> this.onClose());
 
+        lines.add(new Line("Shift + Klick = 10 Bloecke / 10 Ebenen", GRAY));
         if (!LifematicClient.serverHasPlugin) lines.add(new Line("Server ohne Lifematic-Plugin: Teilen nicht moeglich", RED));
+    }
+
+    /** Shift gedrueckt? Dann 10 statt 1 Block (wie in Litematica). */
+    private static boolean shift() {
+        var w = Minecraft.getInstance().getWindow();
+        return InputConstants.isKeyDown(w, GLFW.GLFW_KEY_LEFT_SHIFT) || InputConstants.isKeyDown(w, GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     private static String rotText(SchematicPlacement p) {
