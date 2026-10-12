@@ -36,7 +36,7 @@ public final class LifematicScreen extends Screen {
     }
 
     public static void refreshIfOpen() {
-        if (Minecraft.getInstance().screen instanceof LifematicScreen s) s.rebuild();
+        if (Minecraft.getInstance().gui.screen() instanceof LifematicScreen s) s.rebuild();
     }
 
     private void rebuild() {

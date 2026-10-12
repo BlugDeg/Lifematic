@@ -89,8 +89,8 @@ public final class LifematicClient implements ClientModInitializer {
                 LitematicaBridge.hideLitematicaControls();
             }
             while (menuKey.consumeClick()) {
-                if (client.player != null && client.screen == null) {
-                    client.setScreen(new LifematicScreen());
+                if (client.player != null && client.gui.screen() == null) {
+                    client.gui.setScreen(new LifematicScreen());
                 }
             }
         });
