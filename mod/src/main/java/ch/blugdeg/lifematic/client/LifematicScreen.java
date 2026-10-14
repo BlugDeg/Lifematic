@@ -191,8 +191,7 @@ public final class LifematicScreen extends Screen {
 
     /** Shift gedrueckt? Dann 10 statt 1 Block (wie in Litematica). */
     private static boolean shift() {
-        var w = Minecraft.getInstance().getWindow();
-        return InputConstants.isKeyDown(w, InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(w, InputConstants.KEY_RSHIFT);
+        return InputConstants.isKeyDown(InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
     }
 
     private static String rotText(SchematicPlacement p) {
