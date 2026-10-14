@@ -14,7 +14,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +80,7 @@ public final class LifematicClient implements ClientModInitializer {
 
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("lifematic", "main"));
         menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.menu",
-                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, category));
+                InputConstants.Type.KEYBOARD, InputConstants.KEY_R, category));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!litematicaHidden) {
