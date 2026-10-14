@@ -1,7 +1,7 @@
 name: Lifematic
 version: '${version}'
 main: ch.blugdeg.lifematic.LifematicPlugin
-api-version: '26.2'
+api-version: '26.3'
 description: Teilt Litematica-Bauplaene auf dem Server
 author: BlugDeg
 commands:

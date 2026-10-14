@@ -18,15 +18,16 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
-      - name: Versionen fuer 26.2 ermitteln
+      - name: Versionen fuer 26.3 ermitteln
         id: v
         run: |
           set -e
           meta() { curl -fsSL "$1/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | sed -e 's/<[^>]*>//g'; }
-          PAPER=$(meta https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api | grep '^26\.2' | grep -viE 'snapshot|pre|rc' | tail -1 || true)
-          if [ -z "$PAPER" ]; then PAPER=$(meta https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api | grep '^26\.2' | tail -1); fi
-          LITE=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/litematica/litematica-fabric-26.2 | tail -1)
-          MALI=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/malilib/malilib-fabric-26.2 | tail -1)
+          PAPER=$(meta https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api | grep '^26\.3' | grep -viE 'snapshot|pre|rc' | tail -1 || true)
+          if [ -z "$PAPER" ]; then PAPER=$(meta https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api | grep '^26\.3' | tail -1); fi
+          LITE=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/litematica/litematica-fabric-26.3 | tail -1)
+          MALI=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/malilib/malilib-fabric-26.3 | tail -1)
+          if [ -z "$PAPER" ] || [ -z "$LITE" ] || [ -z "$MALI" ]; then echo "Version fuer 26.3 nicht gefunden"; exit 1; fi
           echo "Paper API:  $PAPER"
           echo "Litematica: $LITE"
           echo "MaLiLib:    $MALI"
