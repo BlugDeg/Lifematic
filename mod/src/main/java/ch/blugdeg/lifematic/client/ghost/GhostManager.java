@@ -49,11 +49,11 @@ public final class GhostManager {
 
     /** Faerbung der Geisterbloecke (ARGB, wird mit der Blockfarbe multipliziert). */
     public static final int TINT = 0xFF86B0FF;
+    /** Faerbung falscher Bloecke: rot = falscher Block, orange = falsch ausgerichtet, violett = gehoert nicht hin. */
+    public static final int TINT_WRONG = 0xFFFF5A4A, TINT_STATE = 0xFFFFB040, TINT_EXTRA = 0xFFE060FF;
 
     /** Ersatzblock fuer Bloecke ohne normales Modell (Truhen, Schilder, Betten …). */
     private static final BlockState PLACEHOLDER = Blocks.GLASS.defaultBlockState();
-
-    private static final BlockState[] NONE = new BlockState[0];
 
     private static final Path SETTINGS = FabricLoader.getInstance().getConfigDir().resolve("lifematic-render.properties");
 
@@ -63,7 +63,7 @@ public final class GhostManager {
     private static boolean active;
     private static boolean litematicaAdjusted;
 
-    private static final Long2ObjectOpenHashMap<BlockState[]> CACHE = new Long2ObjectOpenHashMap<>();
+    private static final Long2ObjectOpenHashMap<SectionData> CACHE = new Long2ObjectOpenHashMap<>();
     private static final LongOpenHashSet DIRTY_COLUMNS = new LongOpenHashSet();
     private static List<int[]> boxes = new ArrayList<>();
     private static String signature = "";
@@ -157,6 +157,32 @@ public final class GhostManager {
             }
             DIRTY_COLUMNS.clear();
         }
+
+        showHint(mc);
+    }
+
+    private static BlockPos lastHintPos;
+    private static int hintTicks;
+
+    /** Schaut der Spieler auf einen falschen Block, steht in der Aktionsleiste, was hingehoert. */
+    private static void showHint(Minecraft mc) {
+        if (!active || mc.player == null || !(mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit)
+                || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            lastHintPos = null;
+            return;
+        }
+        BlockPos p = hit.getBlockPos();
+        String msg = describeMismatch(p);
+        if (msg == null) {
+            lastHintPos = null;
+            return;
+        }
+        if (!p.equals(lastHintPos) || ++hintTicks >= 30) {
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(msg)
+                    .withStyle(net.minecraft.ChatFormatting.RED), true);
+            lastHintPos = p.immutable();
+            hintTicks = 0;
+        }
     }
 
     /** Litematica zeichnet die Bloecke dann nicht mehr selbst, sonst waeren sie doppelt da. */
@@ -209,23 +235,46 @@ public final class GhostManager {
 
     // ------------------------------------------------------------------ Daten fuer Sodium
 
-    public static boolean hasGhosts(int sx, int sy, int sz) {
-        return active && ghosts(sx, sy, sz) != null;
+    /** Geisterbloecke und Markierungen falscher Bloecke eines 16³-Abschnitts. */
+    public record SectionData(BlockState[] ghosts, byte[] marks) {}
+
+    public static final byte MARK_WRONG = 1, MARK_STATE = 2, MARK_EXTRA = 3;
+
+    private static final SectionData EMPTY = new SectionData(null, null);
+
+    /** Eigenschaften, die sich im Spiel von selbst aendern und darum nicht als «falsch» gelten. */
+    private static final java.util.Set<String> VOLATILE = java.util.Set.of(
+            "powered", "power", "open", "waterlogged", "north", "south", "east", "west", "up", "down",
+            "occupied", "enabled", "triggered", "lit", "age", "distance", "persistent", "moisture",
+            "extended", "short", "locked", "delay", "mode", "note", "instrument", "has_book", "bottom",
+            "in_wall", "attached", "disarmed", "level", "honey_level", "candles", "eggs", "hatch");
+
+    public static boolean hasContent(int sx, int sy, int sz) {
+        if (!active) return false;
+        SectionData d = data(sx, sy, sz);
+        return d.ghosts() != null;
     }
 
-    /** Geisterbloecke eines 16³-Abschnitts im Sodium-Index-Format, oder null. Nur Render-Thread. */
-    public static BlockState[] ghosts(int sx, int sy, int sz) {
-        if (!active) return null;
+    /** Daten eines Abschnitts (Cache). Nur Render-Thread. */
+    public static SectionData data(int sx, int sy, int sz) {
+        if (!active) return EMPTY;
         long key = SectionPos.asLong(sx, sy, sz);
-        BlockState[] g = CACHE.get(key);
-        if (g == null) {
-            g = compute(sx, sy, sz);
-            CACHE.put(key, g);
+        SectionData d = CACHE.get(key);
+        if (d == null) {
+            d = compute(sx, sy, sz);
+            CACHE.put(key, d);
         }
-        return g == NONE ? null : g;
+        return d;
     }
 
-    private static BlockState[] compute(int sx, int sy, int sz) {
+    private static boolean inBoxes(int x, int y, int z) {
+        for (int[] b : boxes) {
+            if (x >= b[0] && x <= b[3] && y >= b[1] && y <= b[4] && z >= b[2] && z <= b[5]) return true;
+        }
+        return false;
+    }
+
+    private static SectionData compute(int sx, int sy, int sz) {
         int x0 = sx << 4, y0 = sy << 4, z0 = sz << 4;
         int x1 = x0 + 15, y1 = y0 + 15, z1 = z0 + 15;
 
@@ -236,14 +285,16 @@ public final class GhostManager {
                 break;
             }
         }
-        if (!hit) return NONE;
+        if (!hit) return EMPTY;
 
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         ClientLevel level = Minecraft.getInstance().level;
-        if (schematic == null || level == null) return NONE;
+        if (schematic == null || level == null) return EMPTY;
+        if (!schematic.getChunkSource().hasChunk(sx, sz)) return EMPTY;
         LayerRange layers = DataManager.getRenderLayerRange();
 
-        BlockState[] out = null;
+        BlockState[] ghosts = null;
+        byte[] marks = null;
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int y = 0; y < 16; y++) {
             for (int z = 0; z < 16; z++) {
@@ -252,17 +303,70 @@ public final class GhostManager {
                     if (!layers.isPositionWithinRange(wx, wy, wz)) continue;
                     pos.set(wx, wy, wz);
                     BlockState want = schematic.getBlockState(pos);
-                    if (want.isAir()) continue;
                     BlockState real = level.getBlockState(pos);
-                    if (!real.isAir() && !real.canBeReplaced()) continue;
-                    BlockState ghost = toGhost(want);
-                    if (ghost == null) continue;
-                    if (out == null) out = new BlockState[16 * 16 * 16];
-                    out[index(x, y, z)] = ghost;
+                    boolean realEmpty = real.isAir() || real.canBeReplaced();
+                    int i = index(x, y, z);
+
+                    if (realEmpty) {
+                        if (want.isAir()) continue;
+                        BlockState ghost = toGhost(want);
+                        if (ghost == null) continue;
+                        if (ghosts == null) ghosts = new BlockState[16 * 16 * 16];
+                        ghosts[i] = ghost;
+                        continue;
+                    }
+
+                    byte mark = 0;
+                    if (want.isAir()) {
+                        if (inBoxes(wx, wy, wz)) mark = MARK_EXTRA;
+                    } else if (real.getBlock() != want.getBlock()) {
+                        if (!(want.getBlock() instanceof LiquidBlock)) mark = MARK_WRONG;
+                    } else if (!sameRelevantState(real, want)) {
+                        mark = MARK_STATE;
+                    }
+                    if (mark != 0) {
+                        if (marks == null) marks = new byte[16 * 16 * 16];
+                        marks[i] = mark;
+                    }
                 }
             }
         }
-        return out == null ? NONE : out;
+        return (ghosts == null && marks == null) ? EMPTY : new SectionData(ghosts, marks);
+    }
+
+    private static boolean sameRelevantState(BlockState a, BlockState b) {
+        for (net.minecraft.world.level.block.state.properties.Property<?> p : a.getProperties()) {
+            if (VOLATILE.contains(p.getName())) continue;
+            if (!b.hasProperty(p)) continue;
+            if (!a.getValue(p).equals(b.getValue(p))) return false;
+        }
+        return true;
+    }
+
+    /** Was gehoert laut Bauplan an diese Stelle, und stimmt es? Fuer den Hinweis beim Anschauen. */
+    public static String describeMismatch(BlockPos pos) {
+        if (!active) return null;
+        SectionData d = data(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
+        if (d.marks() == null) return null;
+        byte m = d.marks()[index(pos.getX() & 15, pos.getY() & 15, pos.getZ() & 15)];
+        if (m == 0) return null;
+        WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
+        if (schematic == null) return null;
+        BlockState want = schematic.getBlockState(pos);
+        return switch (m) {
+            case MARK_EXTRA -> "Hier gehoert laut Bauplan nichts hin";
+            case MARK_WRONG -> "Falscher Block – hier gehoert hin: " + want.getBlock().getName().getString();
+            default -> "Richtiger Block, falsch ausgerichtet: " + stateText(want);
+        };
+    }
+
+    private static String stateText(BlockState s) {
+        StringBuilder sb = new StringBuilder(s.getBlock().getName().getString());
+        for (net.minecraft.world.level.block.state.properties.Property<?> p : s.getProperties()) {
+            if (VOLATILE.contains(p.getName())) continue;
+            sb.append(' ').append(p.getName()).append('=').append(s.getValue(p));
+        }
+        return sb.toString();
     }
 
     /** Darstellung eines Bauplan-Blocks als Geisterblock (oder null, wenn er nicht gezeigt wird). */

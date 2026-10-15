@@ -18,6 +18,6 @@ public abstract class RenderSectionManagerMixin {
                                                        @Local(argsOnly = true, ordinal = 0) int x,
                                                        @Local(argsOnly = true, ordinal = 1) int y,
                                                        @Local(argsOnly = true, ordinal = 2) int z) {
-        return original.call(section) && !GhostManager.hasGhosts(x, y, z);
+        return original.call(section) && !GhostManager.hasContent(x, y, z);
     }
 }
