@@ -143,11 +143,13 @@ public final class LifematicScreen extends Screen {
 
     private void initPlans(int cx, SchematicPlacement p) {
         int y = CONTENT_Y;
-        button("Bauplan hinzufuegen …", cx - 155, y, 100, b -> go(Page.FILES));
-        button("Aktivierte Projekte (" + LitematicaBridge.all().size() + ")", cx - 50, y, 100, b -> go(Page.PROJECTS))
+        button("Bauplan hinzufuegen …", cx - 155, y, 310, b -> go(Page.FILES));
+        y += 24;
+        button("Aktivierte Projekte (" + LitematicaBridge.all().size() + ")", cx - 155, y, 310, b -> go(Page.PROJECTS))
                 .active = !LitematicaBridge.all().isEmpty();
-        button("Server-Bauplaene", cx + 55, y, 100, b -> go(Page.SERVER));
-        y += 32;
+        y += 24;
+        button("Server-Bauplaene", cx - 155, y, 310, b -> go(Page.SERVER));
+        y += 34;
 
         labels.add(new Label("Gewaehlter Bauplan", y - 2, GRAY));
         y += 10;
@@ -203,7 +205,7 @@ public final class LifematicScreen extends Screen {
         y += 18;
 
         boolean foreign = p != null && LitematicaBridge.isForeign(p);
-        String lockLabel = p == null ? "Verriegeln" : foreign ? "Verriegelt (fremder Bauplan)" : p.isLocked() ? "Entriegeln" : "Verriegeln";
+        String lockLabel = p == null ? "Verriegeln" : foreign ? "Fremd: verriegelt" : p.isLocked() ? "Entriegeln" : "Verriegeln";
         button(lockLabel, cx - 155, y, 150, b -> {
             LitematicaBridge.toggleLock(LitematicaBridge.selected());
             rebuild();
@@ -232,7 +234,7 @@ public final class LifematicScreen extends Screen {
             LitematicaBridge.toggleSingleLayer();
             rebuild();
         });
-        button("Ebene folgt mir: " + (LitematicaBridge.followPlayer() ? "an" : "aus"), cx + 55, y, 100, b -> {
+        button("Ebene folgt: " + (LitematicaBridge.followPlayer() ? "an" : "aus"), cx + 55, y, 100, b -> {
             LitematicaBridge.setFollowPlayer(!LitematicaBridge.followPlayer());
             rebuild();
         });
