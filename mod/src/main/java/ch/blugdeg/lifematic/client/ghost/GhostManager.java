@@ -158,30 +158,6 @@ public final class GhostManager {
             DIRTY_COLUMNS.clear();
         }
 
-        showHint(mc);
-    }
-
-    private static BlockPos lastHintPos;
-    private static int hintTicks;
-
-    /** Schaut der Spieler auf einen falschen Block, steht in der Aktionsleiste, was hingehoert. */
-    private static void showHint(Minecraft mc) {
-        if (!active || mc.player == null || !(mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit)
-                || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
-            lastHintPos = null;
-            return;
-        }
-        BlockPos p = hit.getBlockPos();
-        String msg = describeMismatch(p);
-        if (msg == null) {
-            lastHintPos = null;
-            return;
-        }
-        if (!p.equals(lastHintPos) || ++hintTicks >= 30) {
-            fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(msg);
-            lastHintPos = p.immutable();
-            hintTicks = 0;
-        }
     }
 
     /** Litematica zeichnet die Bloecke dann nicht mehr selbst, sonst waeren sie doppelt da. */
@@ -340,32 +316,6 @@ public final class GhostManager {
             if (!a.getValue(p).equals(b.getValue(p))) return false;
         }
         return true;
-    }
-
-    /** Was gehoert laut Bauplan an diese Stelle, und stimmt es? Fuer den Hinweis beim Anschauen. */
-    public static String describeMismatch(BlockPos pos) {
-        if (!active) return null;
-        SectionData d = data(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
-        if (d.marks() == null) return null;
-        byte m = d.marks()[index(pos.getX() & 15, pos.getY() & 15, pos.getZ() & 15)];
-        if (m == 0) return null;
-        WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
-        if (schematic == null) return null;
-        BlockState want = schematic.getBlockState(pos);
-        return switch (m) {
-            case MARK_EXTRA -> "Hier gehoert laut Bauplan nichts hin";
-            case MARK_WRONG -> "Falscher Block – hier gehoert hin: " + want.getBlock().getName().getString();
-            default -> "Richtiger Block, falsch ausgerichtet: " + stateText(want);
-        };
-    }
-
-    private static String stateText(BlockState s) {
-        StringBuilder sb = new StringBuilder(s.getBlock().getName().getString());
-        for (net.minecraft.world.level.block.state.properties.Property<?> p : s.getProperties()) {
-            if (VOLATILE.contains(p.getName())) continue;
-            sb.append(' ').append(p.getName()).append('=').append(s.getValue(p));
-        }
-        return sb.toString();
     }
 
     /** Darstellung eines Bauplan-Blocks als Geisterblock (oder null, wenn er nicht gezeigt wird). */
