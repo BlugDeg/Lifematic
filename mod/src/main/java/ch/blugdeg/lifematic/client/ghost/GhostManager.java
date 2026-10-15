@@ -178,8 +178,7 @@ public final class GhostManager {
             return;
         }
         if (!p.equals(lastHintPos) || ++hintTicks >= 30) {
-            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(msg)
-                    .withStyle(net.minecraft.ChatFormatting.RED), true);
+            fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(msg);
             lastHintPos = p.immutable();
             hintTicks = 0;
         }
