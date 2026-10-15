@@ -48,7 +48,7 @@ public final class GhostManager {
     private GhostManager() {}
 
     /** Faerbung der Geisterbloecke (ARGB, wird mit der Blockfarbe multipliziert). */
-    public static final int TINT = 0xFF86B0FF;
+    public static final int TINT = 0x9986B0FF; // Alpha 0x99 = rund 60 % deckend
     /** Faerbung falscher Bloecke: rot = falscher Block, orange = falsch ausgerichtet, violett = gehoert nicht hin. */
     public static final int TINT_WRONG = 0xFFFF5A4A, TINT_STATE = 0xFFFFB040, TINT_EXTRA = 0xFFE060FF;
 
