@@ -1,5 +1,6 @@
 package ch.blugdeg.lifematic.client;
 
+import ch.blugdeg.lifematic.client.ghost.GhostManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacement;
 import net.minecraft.client.Minecraft;
@@ -182,6 +183,16 @@ public final class LifematicScreen extends Screen {
             rebuild();
         });
         button("Schliessen", cx + 55, y, 100, b -> this.onClose());
+        y += 24;
+        String mode = !GhostManager.available() ? "Darstellung: Litematica (Sodium fehlt)"
+                : GhostManager.preferred() ? "Darstellung: shaderfest" : "Darstellung: Litematica";
+        button(mode, cx - 155, y, 310, b -> {
+            GhostManager.setPreferred(!GhostManager.preferred());
+            status = GhostManager.preferred()
+                    ? "Geisterbloecke laufen jetzt ueber Sodium und vertragen Shader."
+                    : "Litematica zeichnet die Vorschau wieder selbst.";
+            rebuild();
+        }).active = GhostManager.available();
 
         if (!LifematicClient.serverHasPlugin && status.isEmpty()) {
             status = "Keine Verbindung zum Lifematic-Plugin – Teilen nicht moeglich";

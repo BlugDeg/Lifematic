@@ -1,5 +1,6 @@
 package ch.blugdeg.lifematic.client;
 
+import ch.blugdeg.lifematic.client.ghost.GhostManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacement;
 import net.fabricmc.api.ClientModInitializer;
@@ -58,6 +59,7 @@ public final class LifematicClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         CONFIG.load();
+        GhostManager.load();
 
         PayloadTypeRegistry.serverboundPlay().register(LifematicPayload.TYPE, LifematicPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(LifematicPayload.TYPE, LifematicPayload.CODEC);
@@ -86,6 +88,11 @@ public final class LifematicClient implements ClientModInitializer {
             if (!litematicaHidden) {
                 litematicaHidden = true;
                 LitematicaBridge.hideLitematicaControls();
+            }
+            try {
+                GhostManager.tick(client);
+            } catch (Throwable t) {
+                LOG.warn("Shaderfeste Vorschau: Fehler im Takt", t);
             }
             while (menuKey.consumeClick()) {
                 if (client.player != null && client.gui.screen() == null) {

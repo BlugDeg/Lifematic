@@ -27,13 +27,16 @@ jobs:
           if [ -z "$PAPER" ]; then PAPER=$(meta https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api | grep '^26\.3' | tail -1); fi
           LITE=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/litematica/litematica-fabric-26.3 | tail -1)
           MALI=$(meta https://masa.dy.fi/maven/sakura-ryoko/fi/dy/masa/malilib/malilib-fabric-26.3 | tail -1)
-          if [ -z "$PAPER" ] || [ -z "$LITE" ] || [ -z "$MALI" ]; then echo "Version fuer 26.3 nicht gefunden"; exit 1; fi
+          SODIUM=$(curl -fsSL -G 'https://api.modrinth.com/v2/project/sodium/version' --data-urlencode 'game_versions=["26.3"]' --data-urlencode 'loaders=["fabric"]' | jq -r '[.[] | select(.version_type=="release")][0].version_number // .[0].version_number')
+          if [ -z "$PAPER" ] || [ -z "$LITE" ] || [ -z "$MALI" ] || [ -z "$SODIUM" ] || [ "$SODIUM" = "null" ]; then echo "Version fuer 26.3 nicht gefunden"; exit 1; fi
           echo "Paper API:  $PAPER"
           echo "Litematica: $LITE"
           echo "MaLiLib:    $MALI"
+          echo "Sodium:     $SODIUM"
           echo "paper=$PAPER" >> "$GITHUB_OUTPUT"
           echo "lite=$LITE" >> "$GITHUB_OUTPUT"
           echo "mali=$MALI" >> "$GITHUB_OUTPUT"
+          echo "sodium=$SODIUM" >> "$GITHUB_OUTPUT"
 
       - name: Plugin bauen
         working-directory: plugin
@@ -47,14 +50,14 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew build --no-daemon --stacktrace -Plitematica_version="${{ steps.v.outputs.lite }}" -Pmalilib_version="${{ steps.v.outputs.mali }}" 2>&1 | tee ../mod-build.log
+          ./gradlew build --no-daemon --stacktrace -Plitematica_version="${{ steps.v.outputs.lite }}" -Pmalilib_version="${{ steps.v.outputs.mali }}" -Psodium_version="${{ steps.v.outputs.sodium }}" 2>&1 | tee ../mod-build.log
 
       - name: Build-Logs in Branch ci-logs ablegen
         if: always()
         run: |
           mkdir -p /tmp/logs
           cp -f *-build.log /tmp/logs/ 2>/dev/null || true
-          echo "paper=${{ steps.v.outputs.paper }} lite=${{ steps.v.outputs.lite }} mali=${{ steps.v.outputs.mali }} sha=${{ github.sha }}" > /tmp/logs/info.txt
+          echo "paper=${{ steps.v.outputs.paper }} lite=${{ steps.v.outputs.lite }} mali=${{ steps.v.outputs.mali }} sodium=${{ steps.v.outputs.sodium }} sha=${{ github.sha }}" > /tmp/logs/info.txt
           cd /tmp/logs
           git init -q -b ci-logs
           git config user.name "ci"

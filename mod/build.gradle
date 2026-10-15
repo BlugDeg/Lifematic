@@ -22,6 +22,10 @@ repositories {
 		url = 'https://maven.terraformersmc.com/releases/'
 		content { includeGroupAndSubgroups('com.terraformersmc') }
 	}
+	maven {
+		url = 'https://api.modrinth.com/maven'
+		content { includeGroup('maven.modrinth') }
+	}
 }
 
 dependencies {
@@ -36,6 +40,10 @@ dependencies {
 	include "fi.dy.masa.malilib:malilib-fabric-${project.minecraft_version}:${project.malilib_version}"
 	implementation "fi.dy.masa.litematica:litematica-fabric-${project.minecraft_version}:${project.litematica_version}"
 	include "fi.dy.masa.litematica:litematica-fabric-${project.minecraft_version}:${project.litematica_version}"
+
+	// Sodium nur zum Kompilieren der shaderfesten Vorschau. Spieler bringen Sodium/Iris selbst mit;
+	// ohne Sodium werden die Mixins uebersprungen und Litematica zeichnet wie bisher.
+	compileOnly "maven.modrinth:sodium:${project.sodium_version}"
 }
 
 processResources {

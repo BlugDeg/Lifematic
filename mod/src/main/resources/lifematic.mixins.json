@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "ch.blugdeg.lifematic.mixin",
+  "plugin": "ch.blugdeg.lifematic.mixin.LifematicMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "litematica.ChunkManagerSchematicMixin",
+    "litematica.WorldSchematicMixin",
+    "sodium.BlockRendererMixin",
+    "sodium.ChunkRenderContextMixin",
+    "sodium.ClonedChunkSectionCacheMixin",
+    "sodium.LevelSliceMixin",
+    "sodium.RenderSectionManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
