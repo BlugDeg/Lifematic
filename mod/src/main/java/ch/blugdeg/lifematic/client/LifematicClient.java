@@ -105,8 +105,8 @@ public final class LifematicClient implements ClientModInitializer {
                 }
             }
             if (client.player != null && client.gui.screen() == null) {
-                boolean plus = InputConstants.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ADD);
-                boolean minus = InputConstants.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_KP_SUBTRACT);
+                boolean plus = InputConstants.isKeyDown(KEY_NUMPAD_PLUS);
+                boolean minus = InputConstants.isKeyDown(KEY_NUMPAD_MINUS);
                 if (shiftDown() && plus && !numPlusDown) layerStep(1);
                 if (shiftDown() && minus && !numMinusDown) layerStep(-1);
                 numPlusDown = plus;
@@ -116,6 +116,8 @@ public final class LifematicClient implements ClientModInitializer {
         });
     }
 
+    /** GLFW-Tastencodes des Ziffernblocks (+ und -). */
+    private static final int KEY_NUMPAD_PLUS = 334, KEY_NUMPAD_MINUS = 333;
     private static boolean numPlusDown, numMinusDown;
 
     private static boolean shiftDown() {

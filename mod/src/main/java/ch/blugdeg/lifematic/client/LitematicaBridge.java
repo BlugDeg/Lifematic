@@ -253,7 +253,7 @@ public final class LitematicaBridge {
     /** Oeffnet den schematics-Ordner im Datei-Explorer. */
     public static void openSchematicsFolder() {
         try {
-            net.minecraft.util.Util.getPlatform().openPath(DataManager.getSchematicsBaseDirectory());
+            com.mojang.blaze3d.Blaze3D.openUri(DataManager.getSchematicsBaseDirectory().toAbsolutePath().toUri());
         } catch (Throwable t) {
             LifematicClient.LOG.warn("schematics-Ordner konnte nicht geoeffnet werden", t);
         }
