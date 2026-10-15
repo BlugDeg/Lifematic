@@ -249,7 +249,7 @@ public final class LifematicScreen extends Screen {
         });
         y += 30;
         labels.add(new Label("Shift + Klick = 10 Ebenen", y, GRAY));
-        labels.add(new Label("Tasten: Shift + R = Vorschau an/aus  ·  Shift + Numpad + / − = Ebene", y + 12, GRAY));
+        labels.add(new Label("Tasten: Shift + R = Vorschau  ·  Numpad + / − = Ebene (Shift: 10)  ·  aenderbar in Steuerung", y + 12, GRAY));
     }
 
     private void initSettings(int cx) {

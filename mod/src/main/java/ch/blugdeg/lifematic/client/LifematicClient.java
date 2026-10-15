@@ -33,7 +33,7 @@ public final class LifematicClient implements ClientModInitializer {
     public static final Logger LOG = LoggerFactory.getLogger("lifematic");
     public static final LinkConfig CONFIG = new LinkConfig();
 
-    private static KeyMapping menuKey;
+    private static KeyMapping menuKey, previewKey, layerUpKey, layerDownKey, followKey;
     static boolean serverHasPlugin;
     private static boolean litematicaHidden;
 
@@ -83,6 +83,14 @@ public final class LifematicClient implements ClientModInitializer {
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("lifematic", "main"));
         menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.menu",
                 InputConstants.Type.KEYBOARD, InputConstants.KEY_R, category));
+        previewKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.preview",
+                InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+        layerUpKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.layer_up",
+                InputConstants.Type.KEYBOARD, KEY_NUMPAD_PLUS, category));
+        layerDownKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.layer_down",
+                InputConstants.Type.KEYBOARD, KEY_NUMPAD_MINUS, category));
+        followKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.lifematic.follow",
+                InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!litematicaHidden) {
@@ -96,21 +104,16 @@ public final class LifematicClient implements ClientModInitializer {
             }
             while (menuKey.consumeClick()) {
                 if (client.player == null || client.gui.screen() != null) continue;
-                if (shiftDown()) {
-                    LitematicaBridge.toggleRendering();
-                    fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(
-                            "Bauplan-Vorschau " + (LitematicaBridge.renderingOn() ? "an" : "aus"));
-                } else {
-                    client.gui.setScreen(new LifematicScreen());
-                }
+                if (shiftDown()) togglePreview();   // Shift + Menue-Taste = Vorschau an/aus
+                else client.gui.setScreen(new LifematicScreen());
             }
-            if (client.player != null && client.gui.screen() == null) {
-                boolean plus = InputConstants.isKeyDown(KEY_NUMPAD_PLUS);
-                boolean minus = InputConstants.isKeyDown(KEY_NUMPAD_MINUS);
-                if (shiftDown() && plus && !numPlusDown) layerStep(1);
-                if (shiftDown() && minus && !numMinusDown) layerStep(-1);
-                numPlusDown = plus;
-                numMinusDown = minus;
+            while (previewKey.consumeClick()) togglePreview();
+            while (layerUpKey.consumeClick()) layerStep(shiftDown() ? 10 : 1);
+            while (layerDownKey.consumeClick()) layerStep(shiftDown() ? -10 : -1);
+            while (followKey.consumeClick()) {
+                LitematicaBridge.setFollowPlayer(!LitematicaBridge.followPlayer());
+                fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(
+                        "Ebene folgt " + (LitematicaBridge.followPlayer() ? "an" : "aus"));
             }
             LitematicaBridge.tickFollow();
         });
@@ -118,7 +121,12 @@ public final class LifematicClient implements ClientModInitializer {
 
     /** GLFW-Tastencodes des Ziffernblocks (+ und -). */
     private static final int KEY_NUMPAD_PLUS = 334, KEY_NUMPAD_MINUS = 333;
-    private static boolean numPlusDown, numMinusDown;
+
+    private static void togglePreview() {
+        LitematicaBridge.toggleRendering();
+        fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(
+                "Bauplan-Vorschau " + (LitematicaBridge.renderingOn() ? "an" : "aus"));
+    }
 
     private static boolean shiftDown() {
         return InputConstants.isKeyDown(InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
