@@ -20,21 +20,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Einfaerbung ueber die Vertexfarbe (wirkt auch mit Shadern):
-<<<<<<< HEAD
- * blau = fehlt noch, rot = falscher Block, orange = falsch ausgerichtet, violett = gehoert nicht hin.
-=======
  * blau = fehlt noch (halbtransparent), rot = falscher Block, orange = falsch ausgerichtet, violett = gehoert nicht hin.
->>>>>>> 19e18d1 (Geisterbloecke halbtransparent darstellen)
  */
 @Mixin(value = BlockRenderer.class, remap = false)
 public abstract class BlockRendererMixin {
     @Unique private int lifematic$tint;
-<<<<<<< HEAD
-
-    @Inject(method = "renderModel", at = @At("HEAD"))
-    private void lifematic$pickTint(BlockStateModel model, BlockState state, BlockPos pos, BlockPos origin, CallbackInfo ci) {
-        this.lifematic$tint = GhostThread.tintFor(pos);
-=======
     @Unique private boolean lifematic$ghost;
 
     @Inject(method = "renderModel", at = @At("HEAD"))
@@ -48,7 +38,6 @@ public abstract class BlockRendererMixin {
             target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/terrain/material/DefaultMaterials;forChunkLayer(Lnet/minecraft/client/renderer/chunk/ChunkSectionLayer;)Lnet/caffeinemc/mods/sodium/client/render/chunk/terrain/material/Material;"))
     private Material lifematic$ghostsTranslucent(ChunkSectionLayer layer, Operation<Material> original) {
         return this.lifematic$ghost ? DefaultMaterials.TRANSLUCENT : original.call(layer);
->>>>>>> 19e18d1 (Geisterbloecke halbtransparent darstellen)
     }
 
     @Inject(method = "tintQuad", at = @At("TAIL"))
