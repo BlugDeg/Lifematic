@@ -231,7 +231,32 @@ public final class LitematicaBridge {
     }
 
     public static boolean canEdit(SchematicPlacement p) {
-        return p != null && !p.isLocked() && (receivedId(p) == null || linkedId(p) != null);
+        return p != null && !p.isLocked() && !isForeign(p);
+    }
+
+    /** Bauplan von jemand anderem (vom Server empfangen, nicht selbst geteilt)? */
+    public static boolean isForeign(SchematicPlacement p) {
+        return p != null && receivedId(p) != null && linkedId(p) == null;
+    }
+
+    /** Eigene Platzierung ver- oder entriegeln. Fremde bleiben immer verriegelt. */
+    public static void toggleLock(SchematicPlacement p) {
+        if (p == null || isForeign(p)) return;
+        p.toggleLocked();
+    }
+
+    /** Verriegelte eigene Bauplaene lassen sich nicht entfernen; fremde Vorschauen schon (betrifft nur dich). */
+    public static boolean canRemove(SchematicPlacement p) {
+        return p != null && (isForeign(p) || !p.isLocked());
+    }
+
+    /** Oeffnet den schematics-Ordner im Datei-Explorer. */
+    public static void openSchematicsFolder() {
+        try {
+            com.mojang.blaze3d.Blaze3D.openUri(DataManager.getSchematicsBaseDirectory().toAbsolutePath().toUri());
+        } catch (Throwable t) {
+            LifematicClient.LOG.warn("schematics-Ordner konnte nicht geoeffnet werden", t);
+        }
     }
 
     public static void move(SchematicPlacement p, int dx, int dy, int dz) {
@@ -261,7 +286,7 @@ public final class LitematicaBridge {
     }
 
     public static void remove(SchematicPlacement p) {
-        if (p == null) return;
+        if (!canRemove(p)) return;
         DataManager.getSchematicPlacementManager().removeSchematicPlacement(p);
     }
 
@@ -287,11 +312,43 @@ public final class LitematicaBridge {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) r.setLayerSingle(mc.player.blockPosition().getY());
         } else {
+            follow = false;
             r.setLayerMode(LayerMode.ALL, false);
         }
     }
 
+    // Ebene folgt dem Spieler
+    private static boolean follow;
+    private static int followedY = Integer.MIN_VALUE;
+
+    public static boolean followPlayer() {
+        return follow;
+    }
+
+    public static void setFollowPlayer(boolean on) {
+        follow = on;
+        followedY = Integer.MIN_VALUE;
+        if (on) tickFollow();
+    }
+
+    /** Jeden Tick: Ebene auf die aktuelle Fusshoehe setzen, wenn «Ebene folgt mir» an ist. */
+    public static void tickFollow() {
+        if (!follow) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        int y = mc.player.blockPosition().getY();
+        if (y == followedY) return;
+        followedY = y;
+        LayerRange r = DataManager.getRenderLayerRange();
+        if (r.getLayerMode() == LayerMode.ALL) {
+            r.setAxis(Direction.Axis.Y);
+            r.setLayerMode(LayerMode.SINGLE_LAYER, false);
+        }
+        r.setLayerSingle(y);
+    }
+
     public static void moveLayer(int amount) {
+        follow = false;
         LayerRange r = DataManager.getRenderLayerRange();
         if (r.getLayerMode() == LayerMode.ALL) toggleSingleLayer();
         r.moveLayer(amount);

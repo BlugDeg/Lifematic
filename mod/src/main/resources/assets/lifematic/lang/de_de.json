@@ -1,4 +1,8 @@
 {
 	"key.category.lifematic.main": "Lifematic",
-	"key.lifematic.menu": "Lifematic-Menue oeffnen"
+	"key.lifematic.menu": "Lifematic-Menue oeffnen (mit Shift: Vorschau an/aus)",
+	"key.lifematic.preview": "Bauplan-Vorschau an/aus",
+	"key.lifematic.layer_up": "Ebene hoeher (mit Shift: 10)",
+	"key.lifematic.layer_down": "Ebene tiefer (mit Shift: 10)",
+	"key.lifematic.follow": "Ebene folgt mir an/aus"
 }

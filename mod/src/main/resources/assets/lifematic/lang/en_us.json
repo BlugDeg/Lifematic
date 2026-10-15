@@ -1,4 +1,8 @@
 {
 	"key.category.lifematic.main": "Lifematic",
-	"key.lifematic.menu": "Open Lifematic menu"
+	"key.lifematic.menu": "Open Lifematic menu (Shift: toggle preview)",
+	"key.lifematic.preview": "Toggle blueprint preview",
+	"key.lifematic.layer_up": "Layer up (Shift: 10)",
+	"key.lifematic.layer_down": "Layer down (Shift: 10)",
+	"key.lifematic.follow": "Toggle layer follows me"
 }
