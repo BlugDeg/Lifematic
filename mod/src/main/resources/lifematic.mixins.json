@@ -7,7 +7,9 @@
   "client": [
     "litematica.ChunkManagerSchematicMixin",
     "litematica.WorldSchematicMixin",
+    "sodium.AbstractBlockRenderContextMixin",
     "sodium.BlockRendererMixin",
+    "sodium.ChunkBuilderMeshingTaskMixin",
     "sodium.ChunkRenderContextMixin",
     "sodium.ClonedChunkSectionCacheMixin",
     "sodium.LevelSliceMixin",

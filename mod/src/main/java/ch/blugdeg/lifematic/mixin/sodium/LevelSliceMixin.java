@@ -12,27 +12,22 @@ import net.caffeinemc.mods.sodium.client.world.cloned.ChunkRenderContext;
 import net.caffeinemc.mods.sodium.client.world.cloned.ClonedChunkSectionCache;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunkSection;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Legt die Geisterbloecke in Sodiums Weltkopie, bevor ein Abschnitt gebaut wird. */
+/** Haengt die Geisterbloecke an jeden Bauauftrag und gibt sie dem Worker-Thread mit. */
 @Mixin(value = LevelSlice.class, remap = false)
 public abstract class LevelSliceMixin {
-    @Shadow @Final private BlockState[][] blockArrays;
-
     /** Abschnitte, die in der echten Welt leer sind, trotzdem bauen, wenn dort Geisterbloecke stehen. */
     @WrapOperation(method = "prepare", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/chunk/LevelChunkSection;hasOnlyAir()Z"))
     private static boolean lifematic$buildGhostOnlySections(LevelChunkSection section, Operation<Boolean> original,
                                                             @Local(argsOnly = true) SectionPos pos) {
-        return original.call(section) && !GhostManager.hasGhosts(pos.x(), pos.y(), pos.z());
+        return original.call(section) && !GhostManager.hasContent(pos.x(), pos.y(), pos.z());
     }
 
     /** Render-Thread: Momentaufnahme der Geisterbloecke an den Bauauftrag haengen. */
@@ -45,26 +40,6 @@ public abstract class LevelSliceMixin {
 
     @Inject(method = "copyData", at = @At("HEAD"))
     private void lifematic$beginCopy(ChunkRenderContext context, CallbackInfo ci) {
-        GhostThread.begin();
-    }
-
-    /** Worker-Thread: Geisterbloecke dort einsetzen, wo in der echten Welt Luft ist. */
-    @Inject(method = "copySectionData", at = @At("TAIL"))
-    private void lifematic$overlayGhosts(ChunkRenderContext context, int sectionIndex, CallbackInfo ci) {
-        GhostSlice ghosts = ((GhostHolder) context).lifematic$getGhosts();
-        if (ghosts == null) return;
-        BlockState[] g = ghosts.sections[sectionIndex];
-        if (g == null) return;
-        BlockState[] blocks = this.blockArrays[sectionIndex];
-        boolean center = sectionIndex == GhostSlice.CENTER;
-        for (int i = 0; i < g.length; i++) {
-            BlockState ghost = g[i];
-            if (ghost == null) continue;
-            BlockState real = blocks[i];
-            if (real.isAir() || real.canBeReplaced()) {
-                blocks[i] = ghost;
-                if (center) GhostThread.mark(i);
-            }
-        }
+        GhostThread.begin(((GhostHolder) context).lifematic$getGhosts());
     }
 }

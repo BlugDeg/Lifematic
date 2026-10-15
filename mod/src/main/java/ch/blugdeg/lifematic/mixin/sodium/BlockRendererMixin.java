@@ -1,6 +1,5 @@
 package ch.blugdeg.lifematic.mixin.sodium;
 
-import ch.blugdeg.lifematic.client.ghost.GhostManager;
 import ch.blugdeg.lifematic.client.ghost.GhostThread;
 import net.caffeinemc.mods.sodium.api.util.ColorMixer;
 import net.caffeinemc.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer;
@@ -14,21 +13,25 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Geisterbloecke blau einfaerben, damit man sie von echten Bloecken unterscheidet. Wirkt auch mit Shadern. */
+/**
+ * Einfaerbung ueber die Vertexfarbe (wirkt auch mit Shadern):
+ * blau = fehlt noch, rot = falscher Block, orange = falsch ausgerichtet, violett = gehoert nicht hin.
+ */
 @Mixin(value = BlockRenderer.class, remap = false)
 public abstract class BlockRendererMixin {
-    @Unique private boolean lifematic$ghost;
+    @Unique private int lifematic$tint;
 
     @Inject(method = "renderModel", at = @At("HEAD"))
-    private void lifematic$checkGhost(BlockStateModel model, BlockState state, BlockPos pos, BlockPos origin, CallbackInfo ci) {
-        this.lifematic$ghost = GhostThread.isGhost(pos);
+    private void lifematic$pickTint(BlockStateModel model, BlockState state, BlockPos pos, BlockPos origin, CallbackInfo ci) {
+        this.lifematic$tint = GhostThread.tintFor(pos);
     }
 
     @Inject(method = "tintQuad", at = @At("TAIL"))
-    private void lifematic$tintGhost(MutableQuadViewImpl quad, CallbackInfo ci) {
-        if (!this.lifematic$ghost) return;
+    private void lifematic$applyTint(MutableQuadViewImpl quad, CallbackInfo ci) {
+        int tint = this.lifematic$tint;
+        if (tint == 0) return;
         for (int i = 0; i < 4; i++) {
-            quad.setColor(i, ColorMixer.mulComponentWise(quad.baseColor(i), GhostManager.TINT));
+            quad.setColor(i, ColorMixer.mulComponentWise(quad.baseColor(i), tint));
         }
     }
 }
