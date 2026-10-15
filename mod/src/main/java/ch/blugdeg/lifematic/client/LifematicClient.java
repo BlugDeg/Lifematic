@@ -95,11 +95,36 @@ public final class LifematicClient implements ClientModInitializer {
                 LOG.warn("Shaderfeste Vorschau: Fehler im Takt", t);
             }
             while (menuKey.consumeClick()) {
-                if (client.player != null && client.gui.screen() == null) {
+                if (client.player == null || client.gui.screen() != null) continue;
+                if (shiftDown()) {
+                    LitematicaBridge.toggleRendering();
+                    fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage(
+                            "Bauplan-Vorschau " + (LitematicaBridge.renderingOn() ? "an" : "aus"));
+                } else {
                     client.gui.setScreen(new LifematicScreen());
                 }
             }
+            if (client.player != null && client.gui.screen() == null) {
+                boolean plus = InputConstants.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ADD);
+                boolean minus = InputConstants.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_KP_SUBTRACT);
+                if (shiftDown() && plus && !numPlusDown) layerStep(1);
+                if (shiftDown() && minus && !numMinusDown) layerStep(-1);
+                numPlusDown = plus;
+                numMinusDown = minus;
+            }
+            LitematicaBridge.tickFollow();
         });
+    }
+
+    private static boolean numPlusDown, numMinusDown;
+
+    private static boolean shiftDown() {
+        return InputConstants.isKeyDown(InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
+    }
+
+    private static void layerStep(int amount) {
+        LitematicaBridge.moveLayer(amount);
+        fi.dy.masa.malilib.util.InfoUtils.printActionbarMessage("Bauplan: " + LitematicaBridge.layerText());
     }
 
     static void sendHello() {
