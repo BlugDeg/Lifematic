@@ -1,0 +1,1 @@
+paper=26.3.build.190-stable lite=0.29.1 mali=0.30.2 sodium=mc26.3-0.9.2-fabric sha=10e6bf4b432057f03e5b70b6e2c687ec5c4b6007
