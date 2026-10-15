@@ -51,7 +51,7 @@ public final class GhostManager {
     public static final int TINT = 0xFF86B0FF;
 
     /** Ersatzblock fuer Bloecke ohne normales Modell (Truhen, Schilder, Betten …). */
-    private static final BlockState PLACEHOLDER = Blocks.LIGHT_BLUE_STAINED_GLASS.defaultBlockState();
+    private static final BlockState PLACEHOLDER = Blocks.GLASS.defaultBlockState();
 
     private static final BlockState[] NONE = new BlockState[0];
 
